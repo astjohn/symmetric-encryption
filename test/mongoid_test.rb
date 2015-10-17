@@ -33,6 +33,20 @@ begin
     validates :encrypted_social_security_number, symmetric_encryption: true
   end
 
+  class MongoidUniqueUser
+    include Mongoid::Document
+
+    field :encrypted_email,    type: String, encrypted: true
+    field :encrypted_username, type: String, encrypted: true
+
+    validates_uniqueness_of :email, allow_blank: true, if: :email_changed?
+
+    validates :username, length: {in: 3..20},
+                         format: {with: /\A[\w\d\-[[:alnum:]]]+\z/},
+                         uniqueness: {case_sensitive: false},
+                         allow_blank: true
+  end
+
   #
   # Unit Tests for field encrypted and validation aspects of SymmetricEncryption
   #
@@ -557,6 +571,26 @@ begin
           end
         end
 
+      end
+
+      describe "uniqueness" do
+        before do
+          MongoidUniqueUser.destroy_all
+          @email = "whatever@not-unique.com"
+          @username = "gibby007"
+          @user = MongoidUniqueUser.create!(email: @email)
+          @email_user = MongoidUniqueUser.create!(username: @username)
+        end
+
+        it "does not allow identical fields" do
+          duplicate = MongoidUniqueUser.new(email: @email)
+          assert_equal duplicate.valid?, false
+        end
+
+        it "does not allow case-sensitive fields" do
+          duplicate = MongoidUniqueUser.new(username: @username.upcase)
+          assert_equal duplicate.valid?, false
+        end
       end
 
     end

@@ -34,6 +34,20 @@ begin
     validates :encrypted_social_security_number, symmetric_encryption: true
   end
 
+  class MongoMapperUniqueUser
+    include MongoMapper::Document
+
+    encrypted_key :email,    String, symmetric_encryption: true
+    encrypted_key :username, String, symmetric_encryption: true
+
+    validates_uniqueness_of :email, allow_blank: true, if: :email_changed?
+
+    validates :username, length: {in: 3..20},
+                         format: {with: /\A[\w\d\-[[:alnum:]]]+\z/},
+                         uniqueness: {case_sensitive: false},
+                         allow_blank: true
+  end
+
   #
   # Unit Tests for MongoMapper
   #
@@ -558,6 +572,26 @@ begin
           end
         end
 
+      end
+
+      describe "uniqueness" do
+        before do
+          MongoMapperUniqueUser.destroy_all
+          @email = "whatever@not-unique.com"
+          @username = "gibby007"
+          @user = MongoMapperUniqueUser.create!(email: @email)
+          @email_user = MongoMapperUniqueUser.create!(username: @username)
+        end
+
+        it "does not allow identical fields" do
+          duplicate = MongoMapperUniqueUser.new(email: @email)
+          assert_equal duplicate.valid?, false
+        end
+
+        it "does not allow case-sensitive fields" do
+          duplicate = MongoMapperUniqueUser.new(username: @username.upcase)
+          assert_equal duplicate.valid?, false
+        end
       end
 
     end

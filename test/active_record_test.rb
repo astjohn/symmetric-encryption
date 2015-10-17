@@ -27,6 +27,11 @@ ActiveRecord::Schema.define version: 0 do
     t.string :encrypted_text
     t.string :encrypted_number
   end
+
+  create_table :unique_users, force: true do |t|
+    t.string :encrypted_email
+    t.string :encrypted_username
+  end
 end
 
 class User < ActiveRecord::Base
@@ -54,6 +59,17 @@ class User < ActiveRecord::Base
 
   validates      :text, format: { with: /\A[a-zA-Z ]+\z/, message: "only allows letters" }, presence: true
   validates      :number, presence: true
+end
+
+class UniqueUser < ActiveRecord::Base
+  attr_encrypted :email,    type: :string
+  attr_encrypted :username, type: :string
+
+  validates_uniqueness_of :email, allow_blank: true, if: :email_changed?
+  validates :username, length: {in: 3..20},
+                       format: {with: /\A[\w\d\-[[:alnum:]]]+\z/},
+                       uniqueness: {case_sensitive: false},
+                       allow_blank: true
 end
 
 # Initialize the database connection
@@ -487,5 +503,26 @@ class ActiveRecordTest < Minitest::Test
         end
       end
     end
+
+    describe "uniqueness" do
+      before do
+        UniqueUser.destroy_all
+        @email = "whatever@not-unique.com"
+        @username = "gibby007"
+        @user = UniqueUser.create!(email: @email)
+        @email_user = UniqueUser.create!(username: @username)
+      end
+
+      it "does not allow identical fields" do
+        duplicate = UniqueUser.new(email: @email)
+        assert_equal duplicate.valid?, false
+      end
+
+      it "does not allow case-sensitive fields" do
+        duplicate = UniqueUser.new(username: @username.upcase)
+        assert_equal duplicate.valid?, false
+      end
+    end
+
   end
 end
